@@ -1,0 +1,75 @@
+<html>
+
+<head>
+  <title>Smart Home with Luxonis</title>
+  <style>
+    @font-face {
+      font-family: 'Jost';
+      src: url('/assets/Jost-500-Medium.ttf')  format('truetype');
+    }
+
+    html {
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: #031224;
+      color: white;
+      min-height: 100vh;
+      width: 100vw;
+      display: flex;
+      align-items: stretch;
+      justify-content: center;
+      flex-direction: column;
+      font-family: Jost;
+      margin: 0;
+      padding: 0;
+    }
+
+    .title {
+      font-weight: 200;
+      text-align: left;
+      padding: 1rem;
+      margin: 0;
+      color: #af0069;
+    }
+
+    .main {
+      flex: 1 1 auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .footer {
+      padding: 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      color: #949cdf;
+     
+    }
+
+    .footer a {
+      color: #949cdf;
+      display: inline;
+      text-decoration: none;
+    }
+
+    .footer a:hover {
+      text-decoration: underline;
+    }
+
+  </style>
+</head>
+<body>
+  <h1 class="title">Smart Home with Luxonis</h1>
+  <main class="main">
+    <img src="{{ url_for('video_feed') }}">
+  </main>
+  <footer class="footer"><a target="_blank" href="https://interaction-dynamics.github.io/">Made with love by Interaction Dynamics</a></footer>
+</body>
+
+</html>
