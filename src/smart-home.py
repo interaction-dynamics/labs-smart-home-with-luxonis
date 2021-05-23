@@ -10,7 +10,6 @@ from flask import Response, Flask, render_template, send_from_directory
 from recognize_pose import recognizePose
 from detect_object import detectObjects
 from spatial_calculator import computePosition
-from get_path import getPath
 from distance import computeDistance
 from fps import FPSHandler
 import draw
