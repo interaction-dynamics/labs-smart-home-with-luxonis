@@ -13,7 +13,6 @@ from spatial_calculator import computePosition
 from get_path import getPath
 from distance import computeDistance
 from fps import FPSHandler
-from convert import to_planar, frameNorm
 import draw
 import pipeline
 from status import Status

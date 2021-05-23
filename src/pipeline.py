@@ -1,9 +1,16 @@
-from get_path import getPath
+import cv2
+import numpy as np 
 import depthai as dai
-from convert import to_planar
+from pathlib import Path
 
 import recognize_pose
 import detect_object
+
+def getPath(basename):
+    return str((Path(__file__).parent / Path('../models/' + basename)).resolve().absolute())
+
+def to_planar(arr: np.ndarray, shape: tuple) -> list:
+		return cv2.resize(arr, shape).transpose(2,0,1).flatten()
 
 POSE_NN_OUT = 'pose_nn_out'
 CAMERA_OUT = 'camera_out'
@@ -152,5 +159,5 @@ def setVideoInputs(frame, poseIn, objectDetectorIn):
 	objectDetectorIn.send(nn_data)
 
 	pose_nn_data = dai.NNData()
-	pose_nn_data.setLayer("input", to_planar(frame, (pose.POSE_ROI_WIDTH, pose.POSE_ROI_HEIGHT)))
+	pose_nn_data.setLayer("input", to_planar(frame, (recognize_pose.POSE_ROI_WIDTH, recognize_pose.POSE_ROI_HEIGHT)))
 	poseIn.send(pose_nn_data)
