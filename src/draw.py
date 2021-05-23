@@ -83,7 +83,7 @@ def drawBox(draw, topLeft, bottomRight, color, thickness, gap):
 	draw.rectangle([(round(x1 + width / 2 - notchThickness / 2) , y2 + margin), (round(x1 + width / 2 + notchThickness / 2), y2 - notchSize)], fill=color)
 	draw.rectangle([(x2 + margin,  round(y1 + height / 2 - notchThickness / 2)), (x2 - notchSize , round(y1 + height / 2 + notchThickness / 2))], fill=color)
 
-filename = str((Path(__file__).parent / Path('assets/Jost-500-Mediumq.ttf')).resolve().absolute())
+filename = str((Path(__file__).parent / Path('assets/Jost-500-Medium.ttf')).resolve().absolute())
 
 
 def drawLabel(draw, bottomLeft, text, fontSize):
