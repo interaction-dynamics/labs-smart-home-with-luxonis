@@ -62,7 +62,7 @@ def create_pipeline(useVideo):
 		print("Creating Object Detector Neural Network...")
 		objectDetector = pipeline.createMobileNetDetectionNetwork()
 		objectDetector.setConfidenceThreshold(0.5)
-		objectDetector.setBlobPath(getPath('mobilenet-ssd_openvino_2021.2_6shave.blob'))
+		objectDetector.setBlobPath(getPath(detect_object.modelFilename)
 		objectDetector.setNumInferenceThreads(2)
 		objectDetector.input.setBlocking(False)
 		objectDetector.input.setQueueSize(1)
@@ -82,7 +82,7 @@ def create_pipeline(useVideo):
 				manip2.initialConfig.setKeepAspectRatio(False)
 				# The NN model expects BGR input. By default ImageManip output type would be same as input (gray in this case)
 				manip2.initialConfig.setFrameType(dai.ImgFrame.Type.BGR888p)
-				cam.preview.link(manip2.inputImage)
+				cam. .link(manip2.inputImage)
 				manip2.out.link(objectDetector.input)	
 
 		# Define a source - two mono (grayscale) cameras
