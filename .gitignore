@@ -1,3 +1,5 @@
 .env
 models
 __pycache__
+*.avi
+*.mp4
