@@ -8,6 +8,7 @@ import recognize_pose
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 GREEN = (0, 255, 0)
+RED = (255, 0, 0)
 
 def init(img):
 		# Convert the image to RGB (OpenCV uses BGR)  
@@ -109,14 +110,14 @@ def drawLabel(draw, bottomLeft, text, fontSize):
 def drawDiamond(draw, center):
 	borderWidth = 4
 
-	width = 20
+	width = 10
 	(x, y) = center
 
 	draw.polygon([ (x, y - width - borderWidth), (x + width + borderWidth, y), (x, y + width + borderWidth), (x - width - borderWidth, y)], fill=(255, 255, 255))   
 	draw.polygon([ (x, y - width), (x + width, y), (x, y + width), (x - width, y)], fill=(0, 0, 0))   
 
 
-def drawObject(draw, bottomLeft, name, location, status, isValid, fontSize):
+def drawObjectWithStatus(draw, bottomLeft, name, location, status, isValid, fontSize):
 	borderWidth = 2
 
 	font_futura = ImageFont.truetype(filename, fontSize) 
@@ -126,10 +127,10 @@ def drawObject(draw, bottomLeft, name, location, status, isValid, fontSize):
 	height = lineHeight * 3 + 2 * lineSpacing
 
 	# top left
-	x = bottomLeft[0]
-	y = bottomLeft[1] - 2 * padding - 2 * borderWidth - height
+	x = max(bottomLeft[0], 0)
+	y = max(bottomLeft[1] - 2 * padding - 2 * borderWidth - height, 0)
 
-	locationStr = "LOCATION: "+str(location[0])+", "+str(location[1])
+	locationStr = "LOCATION: "+str(location[0])+", "+str(location[1])+", "+str(location[2])
 	statusStr = "STATUS:  " + status
 	fontWidth = fontSize / 1.775
 	width = round(max(len(name), len(locationStr), len(statusStr)) * fontWidth)
@@ -154,6 +155,29 @@ def drawObject(draw, bottomLeft, name, location, status, isValid, fontSize):
 	draw.rectangle([(x + borderWidth + padding + lineWidth - horizontalLabelPadding, y + borderWidth + padding + 2 * lineHeight + 2 * lineSpacing - verticalLabelPadding), (x + borderWidth + padding + lineWidth + round(len(status) * fontWidth) + horizontalLabelPadding, y + borderWidth + padding + 3 * lineHeight + 2 * lineSpacing + verticalLabelPadding)], fill=statusColorBg)
 	draw.text(xy = (x + borderWidth + padding + lineWidth, y + borderWidth + padding + 2 * lineHeight + 2 * lineSpacing - round(lineHeight / 2)), text = status, fill = statusColorFg, font = font_futura, align ="left")
 
+def drawObject(draw, bottomLeft, name, location, fontSize):
+	borderWidth = 2
+
+	font_futura = ImageFont.truetype(filename, fontSize) 
+	padding = 10
+	lineHeight = round(fontSize / 1.3)
+	lineSpacing = 7
+	height = lineHeight * 2 + lineSpacing
+
+	# top left
+	x = max(bottomLeft[0], 0)
+	y = max(bottomLeft[1] - 2 * padding - 2 * borderWidth - height, 0)
+
+	locationStr = "LOCATION: "+str(location[0])+", "+str(location[1])+", "+str(location[2])
+	fontWidth = fontSize / 1.775
+	width = round(max(len(name), len(locationStr)) * fontWidth)
+	lineWidth = round(len("STATUS: ") * fontWidth)
+
+
+	draw.rectangle([(x, y), (x + width + 2 * padding + 2 * borderWidth, y + height + 2 * padding + 2 * borderWidth)], fill=WHITE)
+	draw.rectangle([(x + borderWidth, y + borderWidth), (x + borderWidth + width + 2 * padding, y + borderWidth + height + 2 * padding)], fill=BLACK)
+	draw.text(xy = (x + borderWidth + padding, y + borderWidth + padding - round(lineHeight / 2)), text = name, fill = WHITE, font = font_futura, align ="left")
+	draw.text(xy = (x + borderWidth + padding, y + borderWidth + padding + lineHeight + lineSpacing - round(lineHeight / 2)), text = locationStr, fill = WHITE, font = font_futura, align ="left")
 
 def drawBoundingBox(draw, label, topLeft, size):
 	(x, y) = topLeft
@@ -194,3 +218,6 @@ def drawSkeleton(frame, draw, keypoints_list, detected_keypoints, personwiseKeyp
 def drawStatus(frame, draw, status):
 	h, w, c = frame.shape
 	drawLabel(draw, (20, h - 20), "STATUS: "+ status.upper(), 20)
+
+def drawLink(draw, pointA, pointB):
+		draw.line([pointA, pointB], fill=WHITE, width=10)

@@ -6,31 +6,52 @@ import depthai as dai
 import numpy as np
 import threading
 from flask import Response, Flask, render_template, send_from_directory
+import os 
 
-from recognize_pose import recognizePose
-from detect_object import detectObjects
+from recognize_pose import recognizePose, getNeckPosition, isSitted
+from detect_object import detectObjects, Position
 from spatial_calculator import computePosition
-from distance import computeDistance
+from distance import computeDistance, computeDistance2D, isStable
 from fps import FPSHandler
 import draw
 import pipeline
 from status import Status
 from args import parseArgs
+from stack import Stack, isClose
+from recorder import Recorder
 
 args = parseArgs()
 
 detectedObjects = []
+personChestPosition = None
+personChestPositionStack = Stack()
+realLifeChestPositionStack = Stack()
+
+personPosition = None
 status = Status()
 globalFrame = None
+stack = Stack()
 
-# def calibratePositions(objects):
-# 		global objectPositions
-# 		objectPositions = []
-# 		if status != "calibrating":
-# 				return
-# 		for object in objects:
-# 				if (object.label == 'sofa' or object.label == 'chair'):
-# 						detectedObjects.append(object)
+def middle(v1, v2):
+	return int((v1+v2)/2)
+
+def calibratePositions():
+		global detectedObjects
+		for object in detectedObjects:
+				if (object.label == 'sofa'):
+						(x, y) = object.boundingBox.topLeft
+						(width, height) = object.boundingBox.size
+						position1 = Position()
+						position1.image = (middle(x, x + width / 2), middle(y, y + height * 0.66))
+						position2 = Position() 
+						position2.image = (middle(x + width / 2, x + width), middle(y, y + height * 0.66))
+						object.positions = [position1, position2]
+				# elif object.label == 'chair':
+				# 		(x, y) = object.boundingBox.topLeft
+				# 		(width, height) = object.boundingBox.size
+				# 		position = Position()
+				# 		position.image = (int(x + width / 2), int(y + height / 2))
+				# 		object.positions = [position]
 
 cap = None
 
@@ -43,6 +64,47 @@ else:
 def shouldRun():
 		return cap.isOpened() if args.video else True
 
+positioningObjectIndex = 0 
+positioningPositionIndex = -1
+
+def updateNextIndexes():
+		global detectedObjects, positioningObjectIndex, positioningPositionIndex
+		
+		if (positioningObjectIndex >=  len(detectedObjects)):
+				return
+
+		if (positioningPositionIndex + 1 < len(detectedObjects[positioningObjectIndex].positions)):
+				positioningPositionIndex += 1
+		else:
+			positioningObjectIndex += 1 
+			positioningPositionIndex = -1
+			updateNextIndexes()
+
+def sendPositionRequest(depthQueue, spatialCalcConfigInQueue, position, frame):
+		depthFrame = depthQueue.get().getFrame()
+		height, width = frame.shape[:2]
+		depthHeight, depthWidth = depthFrame.shape[:2]
+
+		(x, y) = position
+		correctedX = int(x * depthWidth / width)
+		correctedY = int(y * depthHeight / height)
+
+		topLeft = dai.Point2f(correctedX - 3, correctedY - 3)
+		bottomRight = dai.Point2f(correctedX + 3, correctedY + 3)
+
+		regionOfInterest = dai.SpatialLocationCalculatorConfigData()
+		regionOfInterest.depthThresholds.lowerThreshold = 100
+		regionOfInterest.depthThresholds.upperThreshold = 10000
+		regionOfInterest.roi = dai.Rect(topLeft, bottomRight)
+
+		config = dai.SpatialLocationCalculatorConfig()
+		config.addROI(regionOfInterest)
+		spatialCalcConfigInQueue.send(config)
+
+dirname = os.path.dirname(__file__)
+filename = os.path.join(dirname, '../video.avi')
+recorder = Recorder(filename)
+
 def compute_image():
 
 		keypoints_list = None
@@ -50,7 +112,7 @@ def compute_image():
 		personwiseKeypoints = None
 		detections = []
 
-		global fps, cap, globalFrame
+		global fps, cap, globalFrame, detectedObjects, positioningObjectIndex, positioningPositionIndex, personChestPosition, personPosition, lastPosition, recorder
 
 		# Pipeline is defined, now we can connect to the device
 		with dai.Device(pipeline.create_pipeline(args.video)) as device:
@@ -58,7 +120,7 @@ def compute_image():
 				if args.video:				
 						(poseIn, objectDetectorIn) = pipeline.getVideoInputs(device)
 
-				(cam_out, objectDetection, pose_nn, spatialCalcQueue) = pipeline.getOutputs(device)
+				(cam_out, objectDetection, pose_nn, spatialCalcQueue, depthQueue) = pipeline.getOutputs(device)
 				(spatialCalcConfigInQueue) = pipeline.getInputs(device)
 
 				while shouldRun():
@@ -84,66 +146,117 @@ def compute_image():
 						fps.tick('nn')
 				
 						detected_keypoints, keypoints_list, personwiseKeypoints = recognizePose(rawPose)
-						detectedObjects = detectObjects(frame, objectDetection)
-						positions = computePosition(frame, spatialCalcQueue)
+						objects = detectObjects(frame, objectDetection)
+						for object in objects: 
+								if object.label == 'human':
+										personPosition = object.boundingBox.topLeft
 
-				
+						if status.get() == Status.SCAN:
+								detectedObjects = objects
+								personChestPositionStack.reinitialize()
+						elif status.get() == Status.CALIBRATION:
+								calibratePositions()
+								positioningObjectIndex = 0 
+								positioningPositionIndex = -1
+								updateNextIndexes()
+								if positioningPositionIndex >= 0 and positioningObjectIndex < len(detectedObjects) and positioningPositionIndex < len(detectedObjects[positioningObjectIndex].positions):
+										position = detectedObjects[positioningObjectIndex].positions[positioningPositionIndex]
+										sendPositionRequest(depthQueue, spatialCalcConfigInQueue, position.image, frame)
+										status.set(Status.POSITIONING)
+						elif status.get() == Status.POSITIONING:
+								position = computePosition(frame, spatialCalcQueue)
+								if stack.isStable(position):
+										detectedObjects[positioningObjectIndex].positions[positioningPositionIndex].realLife = position
+										stack.reinitialize()
+										updateNextIndexes()
+										if positioningPositionIndex >= 0 and positioningObjectIndex < len(detectedObjects) and positioningPositionIndex < len(detectedObjects[positioningObjectIndex].positions):
+												position = detectedObjects[positioningObjectIndex].positions[positioningPositionIndex]
+												sendPositionRequest(depthQueue, spatialCalcConfigInQueue, position.image, frame)
+										else:
+												status.set(Status.ACTIVE)
+								else:
+									print('is not stable')
+						elif status.get() == Status.ACTIVE:
+								newChestPosition = getNeckPosition(detected_keypoints, frame)
+								if newChestPosition != None:
+										if personChestPosition == None:
+												personChestPosition = Position()
+												personChestPosition.image = newChestPosition
+										else:
+												if isClose(newChestPosition, personChestPosition.image):
+														personChestPosition.image = newChestPosition
+												else:
+														if personChestPositionStack.isStable(newChestPosition, 0):
+																personChestPosition.image = newChestPosition
+										personChestPositionStack.add(newChestPosition)
 
+								if personChestPosition != None:
+										sendPositionRequest(depthQueue, spatialCalcConfigInQueue, personChestPosition.image, frame)
 
-						# if newPosition or isCalibrating:
-						# 		config = dai.SpatialLocationCalculatorConfigData()
-						# 		config.depthThresholds.lowerThreshold = 100
-						# 		config.depthThresholds.upperThreshold = 10000
+										position = computePosition(frame, spatialCalcQueue)
+										if realLifeChestPositionStack.isStable(position):
+												personChestPosition.realLife = position
 
-						# 		height, width = frame.shape[:2]
-						# 		depthHeight, depthWidth = depthFrame.shape[:2]
-						# 		if isCalibrating and sofaBoundingBox is not None: 
-						# 				(x, y) = sofaCenterPosition
-						# 		elif humanChestPosition is not None :
-						# 				x = humanChestPosition[0]
-						# 				y = humanChestPosition[1]
-						# 		else:
-						# 				x = 100
-						# 				y = 100
+						humanStatus = 'SITTING' if isSitted(keypoints_list, personwiseKeypoints, frame) else 'STANDING'
+						isValid = False
+						closestObject = None 
+						closestObjectPosition = None
+						shortestDistance = 100000
 
-						# 		correctedX = int(x * depthWidth / width)
-						# 		correctedY = int(y * depthHeight / height)
-
-						# 		topLeft = dai.Point2f(correctedX - 3, correctedY - 3)
-						# 		bottomRight = dai.Point2f(correctedX + 3, correctedY + 3)
-
-						# 		config.roi = dai.Rect(topLeft, bottomRight)
-						# 		cfg = dai.SpatialLocationCalculatorConfig()
-						# 		cfg.addROI(config)
-						# 		spatialCalcConfigInQueue.send(cfg)
-
-						# if sofaCenterPosition is not None:
-						# 		cv2.circle(frame, sofaCenterPosition, 10, WHITE, -1, cv2.LINE_AA)
-						# 		(xmin,ymin) = sofaCenterPosition
-						# 		cv2.putText(frame, f"X: {sofaCenterPositionInRealWorld[0]} cm", (xmin + 10, ymin + 20), cv2.FONT_HERSHEY_TRIPLEX, 0.5, WHITE)
-						# 		cv2.putText(frame, f"Y: {sofaCenterPositionInRealWorld[1]} cm", (xmin + 10, ymin + 35), cv2.FONT_HERSHEY_TRIPLEX, 0.5, WHITE)
-						# 		cv2.putText(frame, f"Z: {sofaCenterPositionInRealWorld[2]} cm", (xmin + 10, ymin + 50), cv2.FONT_HERSHEY_TRIPLEX, 0.5, WHITE)
-
-						# 		if humanChestPosition is not None:
-
-						# 				distance = int(computeDistance(humanChestPositionInRealWorld, sofaCenterPositionInRealWorld))
-						# 				cv2.putText(frame, f"Distance: {distance} cm", (xmin + 10, ymin + 65), cv2.FONT_HERSHEY_TRIPLEX, 0.5, WHITE)
-
-						# 				color = RED if distance > 150 else GREEN
-									
-						# 				cv2.line(frame, humanChestPosition, sofaCenterPosition, color, 5, cv2.LINE_AA)
-
+						if personPosition != None:
+								if personChestPosition != None and personChestPosition.realLife != None:
+										for object in detectedObjects:
+												if object.label == 'sofa':
+														for position in object.positions:
+																if position.realLife != None:
+																		distance = computeDistance(personChestPosition.realLife, position.realLife)
+																		if (distance < shortestDistance):
+																				closestObject = object 
+																				shortestDistance = distance
+																				closestObjectPosition = position
+										isValid = shortestDistance < 120
+										positionStatus =  ''
+										if closestObject != None:
+											distance = str(int(shortestDistance))+'cm'
+											if isValid:
+												positionStatus = ' ON SOFA ('+distance+')'
+											else:
+												positionStatus = ' NOT ON SOFA ('+distance+')'
+										humanStatus = humanStatus + positionStatus
 
 						(image, d) = draw.init(frame)
 
-
-						draw.drawObjectBoundingBoxes(d, detectedObjects)
+						if isValid:
+								draw.drawLink(d, personChestPosition.image, closestObjectPosition.image)
+																														
 						draw.drawSkeleton(frame, d, keypoints_list, detected_keypoints, personwiseKeypoints)
+
+						if status.get() == Status.SCAN:
+								draw.drawObjectBoundingBoxes(d, detectedObjects)
+			
+						for object in detectedObjects:
+								for position in object.positions:
+										draw.drawDiamond(d, position.image)
+										labelPosition = ( position.image[0],  position.image[1] - 20)
+										if position.realLife == None:
+												draw.drawLabel(d, labelPosition, object.label, 15)
+										else:
+												draw.drawObject(d, labelPosition, object.label, position.realLife, 15)
+
+						if personPosition != None and status.get() != Status.SCAN:
+								if personChestPosition == None:
+										draw.drawLabel(d, personPosition, 'HUMAN', 15)
+								elif personChestPosition != None and personChestPosition.realLife != None: 
+										draw.drawObjectWithStatus(d, personPosition, 'Human', personChestPosition.realLife, humanStatus, isValid, 15)
+										draw.drawDiamond(d, personChestPosition.image)
 
 						draw.drawStatus(frame, d, status.label())
 
 
 						globalFrame = draw.convert(image)
+
+						if recorder.isRecording:
+							recorder.record(globalFrame)
 
 						if not args.remote:
 								cv2.imshow("RGB", globalFrame)    
@@ -151,9 +264,12 @@ def compute_image():
 								key = cv2.waitKey(1) & 0xFF
 
 								if key == ord("c"):
-									status.set(Status.CALIBRATION)
+									status.toggleCalibration()
 								elif key == ord("q"):
 									break			
+
+
+
 
 if not args.remote:
 		compute_image()
@@ -170,6 +286,27 @@ else:
 		def assets(path):
 			return send_from_directory('assets', path)
 
+		@app.route("/currentStatus")
+		def currentStatus():
+			global status
+			return Response('{"status": "'+status.get()+'"}', status=200, mimetype='application/json')
+
+		@app.route("/calibrate", methods=['POST'])
+		def calibrate():
+			global status
+			status.toggleScan()
+			# return the response generated along with the specific media
+			# type (mime type)
+			return Response('{"status": "'+status.get()+'"}', status=200, mimetype='application/json')
+
+		@app.route("/record", methods=['POST'])
+		def record():
+			if recorder.isRecording:
+				recorder.stop()
+			else:
+				recorder.start()
+			recordingStatus = "true" if recorder.isRecording else "false"
+			return Response('{"recording": '+recordingStatus+'}', status=200, mimetype='application/json')
 
 		def generate():
 			# grab global references to the output frame and lock variables

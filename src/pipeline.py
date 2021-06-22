@@ -17,9 +17,11 @@ CAMERA_OUT = 'camera_out'
 OBJECT_DETECTION_OUT = 'object_detection_out'
 SPATIAL_CALCULATOR_OUT = 'spatial_calculator_out'
 SPATIAL_CALCULATOR_CONFIG_IN = 'spatial_calculator_config_in'
+DEPTH_OUT = 'depth_out'
 
 POSE_NN_IN = 'pose_nn_in'
 OBJECT_DETECTION_IN = 'object_detection_in'
+
 
 def create_pipeline(useVideo):
 		print("Creating pipeline...")
@@ -62,7 +64,7 @@ def create_pipeline(useVideo):
 		print("Creating Object Detector Neural Network...")
 		objectDetector = pipeline.createMobileNetDetectionNetwork()
 		objectDetector.setConfidenceThreshold(0.5)
-		objectDetector.setBlobPath(getPath(detect_object.modelFilename)
+		objectDetector.setBlobPath(getPath(detect_object.modelFilename))
 		objectDetector.setNumInferenceThreads(2)
 		objectDetector.input.setBlocking(False)
 		objectDetector.input.setQueueSize(1)
@@ -82,7 +84,7 @@ def create_pipeline(useVideo):
 				manip2.initialConfig.setKeepAspectRatio(False)
 				# The NN model expects BGR input. By default ImageManip output type would be same as input (gray in this case)
 				manip2.initialConfig.setFrameType(dai.ImgFrame.Type.BGR888p)
-				cam. .link(manip2.inputImage)
+				cam.preview.link(manip2.inputImage)
 				manip2.out.link(objectDetector.input)	
 
 		# Define a source - two mono (grayscale) cameras
@@ -91,9 +93,11 @@ def create_pipeline(useVideo):
 		stereo = pipeline.createStereoDepth()
 		spatialLocationCalculator = pipeline.createSpatialLocationCalculator()
 
+		xoutDepth = pipeline.createXLinkOut()
 		xoutSpatialData = pipeline.createXLinkOut()
 		xinSpatialCalcConfig = pipeline.createXLinkIn()
 
+		xoutDepth.setStreamName(DEPTH_OUT)
 		xoutSpatialData.setStreamName(SPATIAL_CALCULATOR_OUT)
 		xinSpatialCalcConfig.setStreamName(SPATIAL_CALCULATOR_CONFIG_IN)
 
@@ -117,8 +121,8 @@ def create_pipeline(useVideo):
 		monoRight.out.link(stereo.right)
 
 		spatialLocationCalculator = pipeline.createSpatialLocationCalculator()
-
 		stereo.depth.link(spatialLocationCalculator.inputDepth)
+		spatialLocationCalculator.passthroughDepth.link(xoutDepth.input)
 
 		topLeft = dai.Point2f(0.4, 0.4)
 		bottomRight = dai.Point2f(0.6, 0.6)
@@ -139,7 +143,8 @@ def getOutputs(device):
 		device.getOutputQueue(CAMERA_OUT, 1, False),  
 		device.getOutputQueue(OBJECT_DETECTION_OUT, 1, False), 
 		device.getOutputQueue(POSE_NN_OUT, 1, False),
-		device.getOutputQueue(name=SPATIAL_CALCULATOR_OUT, maxSize=4, blocking=False)
+		device.getOutputQueue(name=SPATIAL_CALCULATOR_OUT, maxSize=4, blocking=False),
+		device.getOutputQueue(name=DEPTH_OUT, maxSize=4, blocking=False)
 	)
 
 def getInputs(device):

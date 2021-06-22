@@ -2,44 +2,101 @@
 
 <head>
   <title>Smart Home with Luxonis</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
   <style>
     @font-face {
       font-family: 'Jost';
-      src: url('/assets/Jost-500-Medium.ttf')  format('truetype');
+      src: url('/assets/Jost-500-Medium.ttf') format('truetype');
     }
 
     html {
       margin: 0;
       padding: 0;
+      height: 100%;
+    }
+
+    * {
+      -webkit-font-smoothing: antialiased;
     }
 
     body {
-      background-color: #031224;
-      color: white;
-      min-height: 100vh;
-      width: 100vw;
-      display: flex;
-      align-items: stretch;
-      justify-content: center;
-      flex-direction: column;
-      font-family: Jost;
+      height: 100%;
       margin: 0;
       padding: 0;
     }
 
-    .title {
-      font-weight: 200;
-      text-align: left;
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: left;
       padding: 1rem;
-      margin: 0;
-      color: #af0069;
     }
 
+
     .main {
+      background-color: #031224;
+      color: white;
+      height: 100%;
+
+      font-family: Jost;
+      display: flex;
+      align-items: stretch;
+      justify-content: center;
+      flex-direction: column;
+
+      position: absolute;
+      top: 0;
+      left: 0;
+      height: 100vh;
+      width: 100vw;
+    }
+
+    .title {
+      font-weight: 400;
+      text-align: left;
+      margin: 0;
+      color: #af0069;
+      flex: 1 1 auto;
+    }
+
+
+    .container {
       flex: 1 1 auto;
       display: flex;
       align-items: center;
       justify-content: center;
+      flex-direction: column;
+    }
+
+
+
+    img {
+      position: relative;
+      max-width: 100%;
+    }
+
+    .button {
+      background: #af0069;
+      border-radius: 0.3rem;
+      margin-top: 1rem;
+      border: 0;
+      padding: 0.5rem 1rem;
+      font-size: 1.2rem;
+      text-transform: uppercase;
+      font-weight: 400;
+      color: #031224;
+      cursor: pointer;
+      font-family: Jost;
+
+      transition: 0.2s linear background-color;
+    }
+
+    .button:hover {
+      background: #940059;
+    }
+
+    .button:active {
+      background: #83004e;
     }
 
     .footer {
@@ -48,8 +105,8 @@
       align-items: center;
       justify-content: center;
       text-align: center;
+      font-size: 1rem;
       color: #949cdf;
-     
     }
 
     .footer a {
@@ -61,15 +118,63 @@
     .footer a:hover {
       text-decoration: underline;
     }
-
   </style>
 </head>
+
 <body>
-  <h1 class="title">Smart Home with Luxonis</h1>
   <main class="main">
-    <img src="{{ url_for('video_feed') }}">
+    <header class="header">
+      <h1 class="title">Smart Home with Luxonis</h1>
+      <button class="button" id="record">Record</button>
+    </header>
+    <div class="container">
+      <img src="{{ url_for('video_feed') }}">
+      <button class="calibration button" id="calibrate">Calibrate</button>
+    </div>
+    <footer class="footer"><a target="_blank" href="https://interaction-dynamics.github.io/">Made with love by
+        Interaction
+        Dynamics</a></footer>
   </main>
-  <footer class="footer"><a target="_blank" href="https://interaction-dynamics.github.io/">Made with love by Interaction Dynamics</a></footer>
+  <script>
+    let isCalibrating = false
+
+    fetch("{{ url_for('currentStatus') }}", {
+      method: 'GET',
+    })
+      .then(response => response.json())
+      .then(data => {
+        isCalibrating = data.status === 'scan'
+      });
+
+    document.getElementById('calibrate').addEventListener('click', () => {
+      fetch("{{ url_for('calibrate') }}", {
+        method: 'POST', // *GET, POST, PUT, DELETE, etc.
+      })
+        .then(response => response.json())
+        .then(data => {
+
+          isCalibrating = data.status === 'scan'
+
+          document.getElementById('calibrate').innerText = isCalibrating ? 'Stop calibrating' : 'Calibrate'
+        });
+    })
+
+    let isRecording = false
+
+    document.getElementById('record').addEventListener('click', () => {
+      fetch("{{ url_for('record') }}", {
+        method: 'POST', // *GET, POST, PUT, DELETE, etc.
+      })
+        .then(response => response.json())
+        .then(data => {
+
+          isRecording = data.recording
+
+          document.getElementById('record').innerText = isRecording ? 'Stop recording' : 'Record'
+        });
+    })
+  </script>
+
 </body>
 
 </html>

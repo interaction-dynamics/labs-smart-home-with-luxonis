@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+import math 
 
 keypointsMapping = ['Nose', 'Neck', 'R-Sho', 'R-Elb', 'R-Wr', 'L-Sho', 'L-Elb', 'L-Wr', 'R-Hip', 'R-Knee', 'R-Ank',
 					'L-Hip', 'L-Knee', 'L-Ank', 'R-Eye', 'L-Eye', 'R-Ear', 'L-Ear']
@@ -163,3 +164,49 @@ def recognizePose(raw_in):
 	newPersonwiseKeypoints = getPersonwiseKeypoints(valid_pairs, invalid_pairs, new_keypoints_list)
 
 	return (new_keypoints, new_keypoints_list, newPersonwiseKeypoints)
+
+def getNeckPosition(detected_keypoints, frame):
+		humanChestPosition = None
+		for i in range(18):
+				if i < len(detected_keypoints):
+						for j in range(len(detected_keypoints[i])):
+								if i == 1:
+										height, width, _ = frame.shape
+										ratioX = width / POSE_ROI_WIDTH
+										ratioY = height / POSE_ROI_HEIGHT
+
+										(x, y) = detected_keypoints[i][j][0:2]
+										x = np.int32(x * ratioX)
+										y = np.int32(y * ratioY)
+
+										return (x, y)
+		return None
+		
+
+ANGLE_THRESHOLD = abs(math.tan(math.radians(20)))
+
+
+def isSitted(keypoints_list, personwiseKeypoints, frame):
+		height, width, _ = frame.shape
+		ratioX = width / POSE_ROI_WIDTH
+		ratioY = height / POSE_ROI_HEIGHT
+		for i in range(17):
+				for n in range(len(personwiseKeypoints)):
+						index = personwiseKeypoints[n][np.array(POSE_PAIRS[i])]
+						if -1 in index:
+								continue
+			
+						B = np.int32(keypoints_list[index.astype(int), 0] * ratioX)
+						A = np.int32(keypoints_list[index.astype(int), 1] * ratioY)
+
+						if i == 7:
+								if B[0] != B[1]:
+										tan = abs((A[0] - A[1]) / (B[0] - B[1]))
+										if tan < ANGLE_THRESHOLD:
+												return True												
+						if i == 10:
+								if B[0] != B[1]:
+										tan = abs((A[0] - A[1]) / (B[0] - B[1]))
+										if tan < ANGLE_THRESHOLD:
+												return True												
+		return False

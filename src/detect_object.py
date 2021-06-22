@@ -6,7 +6,7 @@ OBJECT_DETECTOR_ROI_HEIGHT = 300
 modelFilename = 'mobilenet-ssd_openvino_2021.2_6shave.blob'
 
 labels = ["background", "aeroplane", "bicycle", "bird", "boat", "bottle", "bus", "car", "cat", "chair", "cow",
-						"diningtable", "dog", "horse", "motorbike", "person", "pottedplant", "sheep", "sofa", "train", "tvmonitor"]
+						"diningtable", "dog", "horse", "motorbike", "human", "pottedplant", "sheep", "sofa", "train", "tvmonitor"]
 
 np.random.seed(42)
 COLORS = np.random.randint(0, 255, size=(len(labels), 3), dtype="uint8")
@@ -15,6 +15,11 @@ class BoundingBox:
 	def __init__(self, boundingBox):
 		self.topLeft = (boundingBox[0], boundingBox[1])
 		self.size = (boundingBox[2] - boundingBox[0], boundingBox[3] - boundingBox[1])
+
+class Position:
+	def __init__(self):
+		self.image = None
+		self.realLife = None
 
 # nn data, being the bounding box locations, are in <0..1> range - they need to be normalized with frame width/height
 def frameNorm(frame, bbox):
@@ -25,7 +30,6 @@ def frameNorm(frame, bbox):
 class Object:
 	def __init__(self, frame, detection, labels):
 		boundingBox = frameNorm(frame, (detection.xmin, detection.ymin, detection.xmax, detection.ymax))
-		print("boundingBox", boundingBox)
 		self.label = labels[detection.label]
 		self.boundingBox = BoundingBox(boundingBox)
 		self.positions = []
@@ -37,7 +41,6 @@ def detectObjects(frame, objectDetection):
 	objectDetectionValue = objectDetection.tryGet()
 	if objectDetectionValue is not None:
 			for detection in objectDetectionValue.detections: 
-				print("object", detection)
 				objects.append(Object(frame, detection, labels))
 
 	return objects

@@ -1,9 +1,9 @@
+from stack import Stack
 
-def convertToDm(value):
+def toCm(value):
 	return int(value/10)
 
 def computePosition(frame, spatialCalcQueue):
-		positions = []
 		inDepthAvg = spatialCalcQueue.get() # Blocking call, will wait until a new data has arrived
 		spatialData = inDepthAvg.getSpatialLocations()
 
@@ -15,4 +15,6 @@ def computePosition(frame, spatialCalcQueue):
 				xmax = int(roi.bottomRight().x)
 				ymax = int(roi.bottomRight().y)
 								
-				positions.append((convertToDm(depthData.spatialCoordinates.x), convertToDm(depthData.spatialCoordinates.y), convertToDm(depthData.spatialCoordinates.z)))
+				return (toCm(depthData.spatialCoordinates.x), toCm(depthData.spatialCoordinates.y), toCm(depthData.spatialCoordinates.z))
+
+		return None
