@@ -144,12 +144,15 @@ def compute_image():
 								continue
 
 						fps.tick('nn')
+
+						humanVisible = False
 				
 						detected_keypoints, keypoints_list, personwiseKeypoints = recognizePose(rawPose)
 						objects = detectObjects(frame, objectDetection)
 						for object in objects: 
 								if object.label == 'human':
 										personPosition = object.boundingBox.topLeft
+										humanVisible = True
 
 						if status.get() == Status.SCAN:
 								detectedObjects = objects
@@ -189,6 +192,7 @@ def compute_image():
 														if personChestPositionStack.isStable(newChestPosition, 0):
 																personChestPosition.image = newChestPosition
 										personChestPositionStack.add(newChestPosition)
+										humanVisible = True
 
 								if personChestPosition != None:
 										sendPositionRequest(depthQueue, spatialCalcConfigInQueue, personChestPosition.image, frame)
@@ -243,14 +247,14 @@ def compute_image():
 										else:
 												draw.drawObject(d, labelPosition, object.label, position.realLife, 15)
 
-						if personPosition != None and status.get() != Status.SCAN:
+						if personPosition != None and status.get() != Status.SCAN and humanVisible:
 								if personChestPosition == None:
 										draw.drawLabel(d, personPosition, 'HUMAN', 15)
 								elif personChestPosition != None and personChestPosition.realLife != None: 
 										draw.drawObjectWithStatus(d, personPosition, 'Human', personChestPosition.realLife, humanStatus, isValid, 15)
 										draw.drawDiamond(d, personChestPosition.image)
 
-						draw.drawStatus(frame, d, status.label())
+						draw.drawStatus(frame, d, status.label() if not isValid else "SITTING ON SOFA")
 
 
 						globalFrame = draw.convert(image)
