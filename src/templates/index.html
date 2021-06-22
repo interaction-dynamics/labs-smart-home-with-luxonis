@@ -161,6 +161,14 @@
 
     let isRecording = false
 
+    fetch("{{ url_for('isRecording') }}", {
+      method: 'GET',
+    })
+      .then(response => response.json())
+      .then(data => {
+        isRecording = data.recording
+      });
+
     document.getElementById('record').addEventListener('click', () => {
       fetch("{{ url_for('record') }}", {
         method: 'POST', // *GET, POST, PUT, DELETE, etc.

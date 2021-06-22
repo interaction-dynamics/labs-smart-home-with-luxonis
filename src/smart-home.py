@@ -299,8 +299,15 @@ else:
 			# type (mime type)
 			return Response('{"status": "'+status.get()+'"}', status=200, mimetype='application/json')
 
+		@app.route("/isRecording")
+		def isRecording():
+			global recorder
+			recordingStatus = "true" if recorder.isRecording else "false"
+			return Response('{"recording": '+recordingStatus+'}', status=200, mimetype='application/json')
+
 		@app.route("/record", methods=['POST'])
 		def record():
+			global recorder
 			if recorder.isRecording:
 				recorder.stop()
 			else:
