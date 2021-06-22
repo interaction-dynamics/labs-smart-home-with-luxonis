@@ -12,6 +12,9 @@ source .env/bin/activate
 python3 -m pip install -r requirements.txt
 
 python3 src/smart-home.py
+python3 src/smart-home.py --remote # on raspberry pi
+python3 src/smart-home.py --video <path> # with a video 
+
 ```
 
 ## Video recording
