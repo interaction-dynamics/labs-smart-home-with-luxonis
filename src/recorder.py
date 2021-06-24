@@ -14,6 +14,7 @@ class Recorder:
 		self.frames.append(frame)
 
 	def stop(self):
+		self.isRecording = False
 		if len(self.frames) > 0:
 			(height, width) = self.frames[0].shape[:2]
 
@@ -25,4 +26,3 @@ class Recorder:
 			video.release()
 			print("Video saved in ", self.filename)
 		self.frames = []
-		self.isRecording = False

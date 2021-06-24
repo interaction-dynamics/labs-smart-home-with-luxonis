@@ -145,6 +145,7 @@
       .then(response => response.json())
       .then(data => {
         isCalibrating = data.status === 'scan'
+        document.getElementById('calibrate').innerText = isCalibrating ? 'Stop calibrating' : 'Calibrate'
       });
 
     document.getElementById('calibrate').addEventListener('click', () => {
@@ -168,6 +169,7 @@
       .then(response => response.json())
       .then(data => {
         isRecording = data.recording
+        document.getElementById('record').innerText = isRecording ? 'Stop recording' : 'Record'
       });
 
     document.getElementById('record').addEventListener('click', () => {
