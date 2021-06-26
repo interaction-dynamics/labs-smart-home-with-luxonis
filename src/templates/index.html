@@ -126,7 +126,6 @@
   <main class="main">
     <header class="header">
       <h1 class="title">Smart Home with Luxonis</h1>
-      <button class="button" id="record">Record</button>
     </header>
     <div class="container">
       <img src="{{ url_for('video_feed') }}">
@@ -158,30 +157,6 @@
           isCalibrating = data.status === 'scan'
 
           document.getElementById('calibrate').innerText = isCalibrating ? 'Stop calibrating' : 'Calibrate'
-        });
-    })
-
-    let isRecording = false
-
-    fetch("{{ url_for('isRecording') }}", {
-      method: 'GET',
-    })
-      .then(response => response.json())
-      .then(data => {
-        isRecording = data.recording
-        document.getElementById('record').innerText = isRecording ? 'Stop recording' : 'Record'
-      });
-
-    document.getElementById('record').addEventListener('click', () => {
-      fetch("{{ url_for('record') }}", {
-        method: 'POST', // *GET, POST, PUT, DELETE, etc.
-      })
-        .then(response => response.json())
-        .then(data => {
-
-          isRecording = data.recording
-
-          document.getElementById('record').innerText = isRecording ? 'Stop recording' : 'Record'
         });
     })
   </script>

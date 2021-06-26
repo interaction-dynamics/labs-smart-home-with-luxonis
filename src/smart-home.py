@@ -18,7 +18,6 @@ import pipeline
 from status import Status
 from args import parseArgs
 from stack import Stack, isClose
-from recorder import Recorder
 
 args = parseArgs()
 
@@ -101,10 +100,6 @@ def sendPositionRequest(depthQueue, spatialCalcConfigInQueue, position, frame):
 		config.addROI(regionOfInterest)
 		spatialCalcConfigInQueue.send(config)
 
-dirname = os.path.dirname(__file__)
-filename = os.path.join(dirname, '../video.avi')
-recorder = Recorder(filename)
-
 def compute_image():
 
 		keypoints_list = None
@@ -112,7 +107,7 @@ def compute_image():
 		personwiseKeypoints = None
 		detections = []
 
-		global fps, cap, globalFrame, detectedObjects, positioningObjectIndex, positioningPositionIndex, personChestPosition, personPosition, lastPosition, recorder
+		global fps, cap, globalFrame, detectedObjects, positioningObjectIndex, positioningPositionIndex, personChestPosition, personPosition, lastPosition
 
 		# Pipeline is defined, now we can connect to the device
 		with dai.Device(pipeline.create_pipeline(args.video)) as device:
@@ -201,7 +196,8 @@ def compute_image():
 										if realLifeChestPositionStack.isStable(position):
 												personChestPosition.realLife = position
 
-						humanStatus = 'SITTING' if isSitted(keypoints_list, personwiseKeypoints, frame) else 'STANDING'
+						isHumanSitted = isSitted(keypoints_list, personwiseKeypoints, frame)
+						humanStatus = 'SITTING' if isHumanSitted else 'STANDING'
 						isValid = False
 						closestObject = None 
 						closestObjectPosition = None
@@ -220,7 +216,7 @@ def compute_image():
 																				closestObjectPosition = position
 										isValid = shortestDistance < 120
 										positionStatus =  ''
-										if closestObject != None:
+										if closestObject != None and isHumanSitted:
 											distance = str(int(shortestDistance))+'cm'
 											if isValid:
 												positionStatus = ' ON SOFA ('+distance+')'
@@ -230,7 +226,7 @@ def compute_image():
 
 						(image, d) = draw.init(frame)
 
-						if isValid:
+						if isValid and humanVisible:
 								draw.drawLink(d, personChestPosition.image, closestObjectPosition.image)
 																														
 						draw.drawSkeleton(frame, d, keypoints_list, detected_keypoints, personwiseKeypoints)
@@ -251,16 +247,13 @@ def compute_image():
 								if personChestPosition == None:
 										draw.drawLabel(d, personPosition, 'HUMAN', 15)
 								elif personChestPosition != None and personChestPosition.realLife != None: 
-										draw.drawObjectWithStatus(d, personPosition, 'Human', personChestPosition.realLife, humanStatus, isValid, 15)
+										draw.drawObjectWithStatus(d, personPosition, 'Human', personChestPosition.realLife, humanStatus, isValid and isHumanSitted, 15)
 										draw.drawDiamond(d, personChestPosition.image)
 
-						draw.drawStatus(frame, d, status.label() if not isValid else "SITTING ON SOFA")
+						draw.drawStatus(frame, d, status.label() if not isValid or not isHumanSitted else "SITTING ON SOFA")
 
 
 						globalFrame = draw.convert(image)
-
-						if recorder.isRecording:
-							recorder.record(globalFrame)
 
 						if not args.remote:
 								cv2.imshow("RGB", globalFrame)    
@@ -302,22 +295,6 @@ else:
 			# return the response generated along with the specific media
 			# type (mime type)
 			return Response('{"status": "'+status.get()+'"}', status=200, mimetype='application/json')
-
-		@app.route("/isRecording")
-		def isRecording():
-			global recorder
-			recordingStatus = "true" if recorder.isRecording else "false"
-			return Response('{"recording": '+recordingStatus+'}', status=200, mimetype='application/json')
-
-		@app.route("/record", methods=['POST'])
-		def record():
-			global recorder
-			if recorder.isRecording:
-				recorder.stop()
-			else:
-				recorder.start()
-			recordingStatus = "true" if recorder.isRecording else "false"
-			return Response('{"recording": '+recordingStatus+'}', status=200, mimetype='application/json')
 
 		def generate():
 			# grab global references to the output frame and lock variables
