@@ -16,11 +16,3 @@ python3 src/smart-home.py --remote # on raspberry pi
 python3 src/smart-home.py --video <path> # with a video 
 
 ```
-
-## Video recording
-
-Since the video recorded with luxonis may not include all the frame, you may have to increase the speed.
-
-```
-ffmpeg -i video.avi -filter:v "setpts=4.0*PTS"  video.mp4
-```
