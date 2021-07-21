@@ -1,6 +1,8 @@
 # smart-home-with-luxonis
 A smart home project using luxonis camera
 
+![Result](https://user-images.githubusercontent.com/4005226/126560171-6d6004da-99b8-4056-a623-07a90025ad01.gif)
+
 ## Getting started
 
 ```bash
